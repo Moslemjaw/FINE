@@ -60,3 +60,34 @@ authRouter.get('/me', requireAuth, async (req, res) => {
   return res.json({ user: { id: user._id, email: user.email, name: user.name, role: user.role } });
 });
 
+const UpdateProfileSchema = z.object({
+  name: z.string().min(2).max(60).optional(),
+  currentPassword: z.string().min(1).optional(),
+  newPassword: z.string().min(8).max(200).optional(),
+});
+
+authRouter.put('/me', requireAuth, async (req, res) => {
+  const parsed = UpdateProfileSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_input' });
+
+  const user = await User.findById(req.auth.sub);
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+
+  const { name, currentPassword, newPassword } = parsed.data;
+
+  if (name) user.name = name;
+
+  if (newPassword) {
+    if (!currentPassword) return res.status(400).json({ error: 'current_password_required' });
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) return res.status(400).json({ error: 'incorrect_password' });
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+  }
+
+  await user.save();
+
+  const token = signToken({ sub: user._id.toString(), role: user.role, email: user.email });
+  setAuthCookie(res, token);
+  return res.json({ user: { id: user._id, email: user.email, name: user.name, role: user.role } });
+});
+

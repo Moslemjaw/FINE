@@ -11,9 +11,14 @@ export async function analyzeWithGemini({ role, input, kuwaitSources }) {
   return runGeminiJsonPrompt(prompt, 1400);
 }
 
-export async function runGeminiJsonPrompt(prompt, maxOutputTokens = 1400) {
+/**
+ * @param {string} prompt
+ * @param {number} maxOutputTokens
+ * @param {string} model - Gemini model to use (default: gemini-2.5-flash)
+ * @param {number} temperature - Temperature for generation (default: 0.2)
+ */
+export async function runGeminiJsonPrompt(prompt, maxOutputTokens = 1400, model = 'gemini-2.5-flash', temperature = 0.2) {
   const key = getGeminiKey();
-  const model = 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
 
   const res = await fetch(url, {
@@ -27,7 +32,7 @@ export async function runGeminiJsonPrompt(prompt, maxOutputTokens = 1400) {
         },
       ],
       generationConfig: {
-        temperature: 0.2,
+        temperature,
         maxOutputTokens,
       },
     }),

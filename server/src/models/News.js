@@ -8,9 +8,17 @@ const NewsSchema = new mongoose.Schema(
     source: { type: String, required: true },
     headline: { type: String, required: true },
     body: { type: String, default: '' },
+    originalHeadline: { type: String, default: '' },
+    originalBody: { type: String, default: '' },
     url: { type: String, default: '' },
     publishedAt: { type: Date, default: Date.now },
     createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // AI Analysis fields
+    sentimentScore: { type: Number, default: null },        // -1 to 1
+    sentimentLabel: { type: String, enum: ['Bullish', 'Bearish', 'Neutral', null], default: null },
+    aiAnalysis: { type: String, default: '' },               // Brief AI-generated market impact note
+    aiSectors: [{ type: String }],                           // Affected sectors
+    analyzed: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

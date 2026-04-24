@@ -11,9 +11,35 @@ function toDateMaybe(x) {
   return Number.isFinite(d.getTime()) ? d : null;
 }
 
+/**
+ * Fetch with retry logic for transient failures.
+ */
+async function fetchWithRetry(url, options = {}, retries = 1, delayMs = 2000) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(12000),
+      });
+      if (res.ok || attempt === retries) return res;
+      // Retry on 5xx errors
+      if (res.status >= 500) {
+        console.warn(`[newsdata] Retry ${attempt + 1}/${retries} after ${res.status}`);
+        await new Promise(r => setTimeout(r, delayMs));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (attempt === retries) throw err;
+      console.warn(`[newsdata] Retry ${attempt + 1}/${retries} after error: ${err.message}`);
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+}
+
 export async function fetchNewsDataLatest({
   q = 'kuwait',
-  countries = ['kw', 'sa', 'ae', 'qa'],
+  countries = ['kw', 'sa', 'ae'],
   languages = ['ar', 'en'],
   categories = ['business', 'politics', 'technology', 'top', 'domestic'],
   timezone = 'asia/kuwait',
@@ -34,7 +60,7 @@ export async function fetchNewsDataLatest({
   url.searchParams.set('image', String(image));
   url.searchParams.set('removeduplicate', removeDuplicate ? '1' : '0');
 
-  const res = await fetch(url.toString(), { method: 'GET' });
+  const res = await fetchWithRetry(url.toString(), { method: 'GET' });
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {
@@ -43,6 +69,8 @@ export async function fetchNewsDataLatest({
   }
 
   const results = Array.isArray(data?.results) ? data.results : [];
+  console.log(`[newsdata] Fetched ${results.length} articles for q="${q}" countries=[${countries}]`);
+
   return results.map((r) => {
     const publishedAt =
       toDateMaybe(r.pubDate) ??
@@ -62,4 +90,3 @@ export async function fetchNewsDataLatest({
     };
   });
 }
-
